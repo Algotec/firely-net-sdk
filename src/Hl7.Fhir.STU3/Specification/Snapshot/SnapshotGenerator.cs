@@ -1940,17 +1940,10 @@ namespace Hl7.Fhir.Specification.Snapshot
 
             try
             {
-                var shouldGenerate = _settings.RegenerationBehaviour switch
-                {
-                    RegenerationSettings.TRY_USE_EXISTING => !sd.HasSnapshot,
-                    RegenerationSettings.REGENERATE_ONCE => !sd.HasSnapshot || !sd.Snapshot.IsCreatedBySnapshotGenerator(),
 #pragma warning disable CS0618 // Type or member is obsolete
-                    RegenerationSettings.FORCE_REGENERATE => true,
-#pragma warning restore CS0618 // Type or member is obsolete
-                    _ => throw new InvalidOperationException($"Invalid RegenerationSettings value {_settings.RegenerationBehaviour}")
-                };
-                
-                if (_settings.GenerateSnapshotForExternalProfiles && shouldGenerate)
+                if (_settings.GenerateSnapshotForExternalProfiles
+               && (!sd.HasSnapshot || (_settings.RegenerationBehaviour == RegenerationSettings.FORCE_REGENERATE && !sd.Snapshot.IsCreatedBySnapshotGenerator()))
+               )
                 {
                     // Automatically expand external profiles on demand
                     // Debug.Print($"[{nameof(SnapshotGenerator)}.{nameof(ensureSnapshot)}] Recursively generate snapshot for type profile with url: '{sd.Url}' ...");
@@ -1969,6 +1962,7 @@ namespace Hl7.Fhir.Specification.Snapshot
                     // Add in-memory annotation to prevent repeated expansion
                     sd.Snapshot.SetCreatedBySnapshotGenerator();
                 }
+#pragma warning restore CS0618 // Type or member is obsolete
 
                 if (!sd.HasSnapshot)
                 {
@@ -2032,23 +2026,17 @@ namespace Hl7.Fhir.Specification.Snapshot
             var cachedRoot = sd.GetSnapshotRootElementAnnotation();
             if (cachedRoot != null) { return cachedRoot; }
 #endif
-            var hasValidRoot = _settings.RegenerationBehaviour switch
-            {
-                RegenerationSettings.TRY_USE_EXISTING => sd.HasSnapshot,
-                RegenerationSettings.REGENERATE_ONCE => sd.HasSnapshot && sd.Snapshot.IsCreatedBySnapshotGenerator(),
-#pragma warning disable CS0618 // Type or member is obsolete
-                RegenerationSettings.FORCE_REGENERATE => false,
-#pragma warning restore CS0618 // Type or member is obsolete
-                _ => throw new InvalidOperationException($"Invalid RegenerationSettings value {_settings.RegenerationBehaviour}")
-            };
-            
+
+
             // 2. Return root element definition from existing (pre-generated) snapshot, if it exists
-            if (hasValidRoot)
+#pragma warning disable CS0618 // Type or member is obsolete
+            if (sd.HasSnapshot && (sd.Snapshot.IsCreatedBySnapshotGenerator() || _settings.RegenerationBehaviour != RegenerationSettings.FORCE_REGENERATE))
             {
                 // Debug.Print($"[{nameof(SnapshotGenerator)}.{nameof(getSnapshotRootElement)}] {nameof(profileUri)} = '{profileUri}' - use existing root element definition from snapshot: #{sd.Snapshot.Element[0].GetHashCode()}");
                 // No need to save root ElemDef annotation, as the snapshot has already been fully expanded
                 return sd.Snapshot.Element[0];
             }
+#pragma warning restore CS0618 // Type or member is obsolete
 
             // 3. Try to resolve root element definition from currently generating (partial) snapshot on recursion stack
             // If the recursion stack contains the target profile, then the snapshot root element has already been generated
