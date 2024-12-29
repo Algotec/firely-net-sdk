@@ -1851,8 +1851,17 @@ namespace Hl7.Fhir.Rest
 				}
 				catch (WebException ex)
 				{
-					result = FhirResponse.FromHttpWebResponse(ex.Response as HttpWebResponse);
-				}
+                    var webResponse = ex.Response as HttpWebResponse;
+                    if (webResponse != null)
+                    {    
+                        result = FhirResponse.FromHttpWebResponse(webResponse);
+                        AfterResponse(webResponse);
+                    }
+                    else
+                    {
+                        throw new FhirOperationException($"Operation failed: {ex.Message}");
+                    }                    
+                }
 			}
 
 			LastResponseDetails = result;
